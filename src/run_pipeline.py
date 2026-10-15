@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-from llm_client import LLMClientGemini, LLMClientDeepseek, LLMClientOpenAI
+from llm_client import LLMClientGemini, LLMClientDeepseek, LLMClientOpenAI, LLMClientOllama
 from pipeline_steps import run_phonology_step, run_grammar_step, run_lexicon_step, run_translation_step, run_translation_individual_step
 
 logger = logging.getLogger(__name__)
@@ -233,7 +233,18 @@ def main():
     logger.info(f"Metadata saved to: {metadata_file}")
     
     # Initialize LLM client
-    if args.model.startswith('gemini'):
+    if args.model.startswith('ollama/'):
+        # Local model via Ollama, e.g. --model ollama/qwen3:8b
+        llm_client = LLMClientOllama(
+            model_checkpoint=args.model[len('ollama/'):],
+            max_tokens=args.max_tokens,
+            temperature=args.temperature,
+            top_p=args.top_p,
+            sleep_between_calls=args.sleep_between_calls,
+            debug=args.debug,
+            request_timeout=args.request_timeout
+        )
+    elif args.model.startswith('gemini'):
         llm_client = LLMClientGemini(
             model_checkpoint=args.model,
             max_tokens=args.max_tokens,

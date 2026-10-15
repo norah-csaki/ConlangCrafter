@@ -19,14 +19,20 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from llm_client import LLMClientGemini, LLMClientDeepseek, LLMClientOpenAI, PromptManager
+from llm_client import LLMClientGemini, LLMClientDeepseek, LLMClientOpenAI, LLMClientOllama, PromptManager
 from utils import clean_response, load_required_files, save_memory
 
 logger = logging.getLogger(__name__)
 
 
 def build_llm_client(args):
-    if args.model.startswith('gemini'):
+    if args.model.startswith('ollama/'):
+        return LLMClientOllama(
+            model_checkpoint=args.model[len('ollama/'):],
+            temperature=args.temperature,
+            debug=args.debug,
+        )
+    elif args.model.startswith('gemini'):
         return LLMClientGemini(
             model_checkpoint=args.model,
             temperature=args.temperature,

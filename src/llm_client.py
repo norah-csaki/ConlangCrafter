@@ -189,6 +189,74 @@ class LLMClientDeepseek:
         return full_response, extracted_content
 
 
+class LLMClientOllama:
+    """Runs a local model through Ollama's OpenAI-compatible API."""
+
+    def __init__(self,
+                 model_checkpoint: str = 'qwen3:8b',
+                 max_tokens: Optional[int] = None,
+                 temperature: Optional[float] = None,
+                 top_p: Optional[float] = None,
+                 sleep_between_calls: float = 0,
+                 request_timeout: float = 600,
+                 base_url: Optional[str] = None,
+                 debug: bool = False):
+        self.model_checkpoint = model_checkpoint
+        self.max_tokens = max_tokens
+        self.temperature = temperature
+        self.top_p = top_p
+        self.sleep_between_calls = sleep_between_calls
+        self.request_timeout = request_timeout
+        self.debug = debug
+
+        if base_url is None:
+            base_url = os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434/v1')
+
+        if not self.debug:
+            # Ollama ignores the key, but the OpenAI library requires one
+            self.client = OpenAI(base_url=base_url, api_key='ollama', timeout=self.request_timeout)
+        else:
+            self.client = None
+
+        logger.info(f"Ollama LLM Client initialized with model: {self.model_checkpoint} (debug={self.debug})")
+
+    def generate(self, prompt: str, do_sleep: bool = True, **kwargs) -> str:
+        if self.debug:
+            logger.info("Debug mode: returning dummy response")
+            return "<think>\nThis is a dummy response for debugging.\n</think>\n\nDummy content for testing."
+
+        logger.info("Running Ollama inference...")
+
+        call_kwargs = {
+            'model': self.model_checkpoint,
+            'messages': [{"role": "user", "content": prompt}],
+        }
+        if self.max_tokens is not None:
+            call_kwargs['max_tokens'] = self.max_tokens
+        if self.temperature is not None:
+            call_kwargs['temperature'] = self.temperature
+        if self.top_p is not None:
+            call_kwargs['top_p'] = self.top_p
+        response = self.client.chat.completions.create(**call_kwargs)
+
+        response_text = response.choices[0].message.content
+        logger.info(f"LLM response: {response_text}")
+
+        if do_sleep and self.sleep_between_calls > 0:
+            sleep(self.sleep_between_calls)
+
+        return response_text
+
+    def extract_content_after_think(self, response: str) -> str:
+        """Extract content after the </think> tag (Qwen3 and similar models emit one)."""
+        return response.split('</think>')[-1].strip()
+
+    def generate_and_extract(self, prompt: str, do_sleep: bool = True, **kwargs) -> tuple[str, str]:
+        full_response = self.generate(prompt, do_sleep, **kwargs)
+        extracted_content = self.extract_content_after_think(full_response)
+        return full_response, extracted_content
+
+
 class PromptManager:
     """Helper class for managing prompts and templates."""
     
